@@ -1,0 +1,18 @@
+{
+  "project": "PersonaChat",
+  "version": "1.0.0",
+  "description": "Registry of available personas. Does not couple data - use id to load normalized_profile/{id}.json independently.",
+  "personas": [
+    { "id": "albert_einstein", "display_name": "Albert Einstein", "type": "historical", "file": "albert_einstein.json", "era": "1879-1955" },
+    { "id": "isaac_newton", "display_name": "Sir Isaac Newton", "type": "historical", "file": "isaac_newton.json", "era": "1643-1727" },
+    { "id": "nikola_tesla", "display_name": "Nikola Tesla", "type": "historical", "file": "nikola_tesla.json", "era": "1856-1943" },
+    { "id": "odysseus", "display_name": "Odysseus", "type": "mythic", "file": "odysseus.json", "era": "Homeric" },
+    { "id": "pablo_escobar", "display_name": "Pablo Escobar", "type": "historical", "file": "pablo_escobar.json", "era": "1949-1993" },
+    { "id": "thomas_shelby", "display_name": "Thomas Shelby", "type": "fictional", "file": "thomas_shelby.json", "era": "1919+" }
+  ],
+  "usage": {
+    "load_single": "read normalized_profile/{id}.json - no dependency on index",
+    "rag": "Chunk each file by top-level keys (speaking_style, never_list, reaction_rules, canonical_quotes) -> Chroma collection persona_{id} or single collection with metadata persona=id",
+    "switching": "active_persona from index; invoked_persona = classifier extracts id -> load second file temporarily, then revert"
+  }
+}

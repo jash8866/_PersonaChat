@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PersonaChat Normalized Profile",
+  "description": "Modular independent persona definition for LangChain RAG. Each file is self-contained; no cross-file dependency. Load by id.",
+  "type": "object",
+  "required": ["id", "display_name", "type", "version", "system_prompt", "core_traits", "speaking_style", "never_list", "reaction_rules"],
+  "properties": {
+    "id": { "type": "string", "description": "kebab snake unique key, also Chroma collection suffix", "pattern": "^[a-z_]+$" },
+    "display_name": { "type": "string" },
+    "type": { "enum": ["historical", "mythic", "fictional"] },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "system_prompt": { "type": "string", "description": "Self-contained LLM instruction; no external lookup needed" },
+    "identity": { "type": "object" },
+    "core_traits": { "type": "object" },
+    "personality_model": { "type": "object" },
+    "speaking_style": { "type": "object", "properties": { "tone": { "type": "string" }, "cadence": { "type": "string" }, "diction": { "type": "string" } } },
+    "thinking_patterns": { "type": ["object", "array"] },
+    "decision_framework": { "type": ["object", "string"] },
+    "never_list": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["prohibition"],
+        "properties": {
+          "prohibition": { "type": "string" },
+          "evidence": { "type": "string" },
+          "confidence": { "enum": ["high", "medium", "low"] }
+        }
+      }
+    },
+    "reaction_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["if", "then"],
+        "properties": {
+          "if": { "type": "string" },
+          "then": { "type": "string" },
+          "confidence": { "type": "string" }
+        }
+      }
+    },
+    "backstory": { "type": "array" },
+    "relationships": { "type": "array" },
+    "preferences": { "type": "object" },
+    "canonical_quotes": { "type": "array" },
+    "micro_behaviors": { "type": "array" },
+    "vocabulary": { "type": "array" },
+    "guardrails": { "type": "object" },
+    "metadata": { "type": "object" }
+  },
+  "abstraction_principles": [
+    "Single Responsibility: one file = one persona, fully independent",
+    "No imports between personas; shared behavior via _schema.json validation only",
+    "RAG-ready: each top-level key maps to retrievable chunk group (traits/style/rules/quotes)",
+    "Add new persona by copying schema - zero code change",
+    "Versioned per file for independent evolution"
+  ]
+}
