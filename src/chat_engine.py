@@ -8,42 +8,38 @@ from langchain_core.messages import HumanMessage, AIMessage
 from src.chains import get_chain, get_last_evidence
 from src.router import detect_invocation
 from src.persona_loader import load_persona
+from src.providers import MODEL_ID
 
 class ChatEngine:
-    def __init__(self, active_persona: str, model_id: str | None = None):
-        from src.providers import get_default_model_id
+    def __init__(self, active_persona: str):
         self.active_persona = active_persona
-        self.model_id = model_id or get_default_model_id()
         self.history: List[HumanMessage | AIMessage] = []
 
     def set_active(self, persona_id: str):
         self.active_persona = persona_id
 
-    def set_model(self, model_id: str):
-        self.model_id = model_id
-
     def _invoke(self, persona_id: str, query: str) -> str:
         from src.telemetry import get_logger, timer
         log = get_logger("personachat.engine")
-        with timer(log, "llm_invoke", persona=persona_id, model=self.model_id, qlen=len(query)):
-            chain = get_chain(persona_id, model_id=self.model_id)
+        with timer(log, "llm_invoke", persona=persona_id, model=MODEL_ID, qlen=len(query)):
+            chain = get_chain(persona_id)
             return chain.invoke({"question": query, "history": self.history})
 
     def _evidence_for(self, persona_id: str) -> Dict | None:
-        """Evidence captured during the last retrieval for this persona+model."""
-        return get_last_evidence(persona_id, self.model_id)
+        """Evidence captured during the last retrieval for this persona."""
+        return get_last_evidence(persona_id)
 
     def chat(self, user_input: str) -> Tuple[str, Dict]:
         """
         Returns (response_text, meta)
         meta = {"invoked": str|None, "active": str, "model": str, "elapsed": float,
-                "evidence": dict|None}  # evidence feeds the UI Evidence panel
+                "evidence": dict|None}  # evidence feeds the Retrieved Context panel
         """
         import time
         from src.telemetry import get_logger
         log = get_logger("personachat.engine")
         start = time.perf_counter()
-        log.info(f"chat start active={self.active_persona} model={self.model_id} qlen={len(user_input)} q={user_input[:120]!r}")
+        log.info(f"chat start active={self.active_persona} model={MODEL_ID} qlen={len(user_input)} q={user_input[:120]!r}")
         route = detect_invocation(user_input, self.active_persona)
         invoked = route["invoked"]
         log.info(f"route invoked={invoked} active={self.active_persona}")
@@ -58,7 +54,7 @@ class ChatEngine:
             self.history.append(AIMessage(content=tagged))
             elapsed = time.perf_counter() - start
             log.info(f"chat done switch={invoked} elapsed={elapsed:.2f}s")
-            return tagged, {"invoked": invoked, "active": self.active_persona, "switch": True, "model": self.model_id, "elapsed": elapsed, "evidence": self._evidence_for(invoked)}
+            return tagged, {"invoked": invoked, "active": self.active_persona, "switch": True, "model": MODEL_ID, "elapsed": elapsed, "evidence": self._evidence_for(invoked)}
 
         # Normal active persona answer
         answer = self._invoke(self.active_persona, user_input)
@@ -66,7 +62,7 @@ class ChatEngine:
         self.history.append(AIMessage(content=answer))
         elapsed = time.perf_counter() - start
         log.info(f"chat done switch=None elapsed={elapsed:.2f}s alen={len(answer)}")
-        return answer, {"invoked": None, "active": self.active_persona, "switch": False, "model": self.model_id, "elapsed": elapsed, "evidence": self._evidence_for(self.active_persona)}
+        return answer, {"invoked": None, "active": self.active_persona, "switch": False, "model": MODEL_ID, "elapsed": elapsed, "evidence": self._evidence_for(self.active_persona)}
 
     def get_history(self) -> List[Dict]:
         out = []

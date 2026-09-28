@@ -1,7 +1,7 @@
 """
 providers.py - Single abstraction for embeddings + LLM.
 Embeddings: always HuggingFace (local, free, matches _learn_RAG pattern).
-LLM: switchable via LLM_PROVIDER=ollama|openrouter (modular, independent).
+LLM: fixed single model — OpenRouter gpt-oss-120b (no switching).
 """
 import os
 try:
@@ -17,53 +17,9 @@ _MODELS_DIR = os.getenv("HF_MODELS_DIR", str((__import__("pathlib").Path(__file_
 os.environ.setdefault("SENTENCE_TRANSFORMERS_HOME", _MODELS_DIR)
 os.environ.setdefault("HF_HUB_CACHE", _MODELS_DIR)
 os.environ.setdefault("HF_HOME", _MODELS_DIR)
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").lower()
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-# Support .env with OPENROUTER_MODEL1/2/3 plus legacy OPENROUTER_MODEL
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-20b:free")
-
-
-def _openrouter_models_from_env():
-    """Collect OPENROUTER_MODEL1/2/3 (+ legacy OPENROUTER_MODEL) in order, deduped."""
-    models = []
-    for key in ["OPENROUTER_MODEL1", "OPENROUTER_MODEL2", "OPENROUTER_MODEL3", "OPENROUTER_MODEL"]:
-        v = os.getenv(key)
-        if v and v not in models:
-            models.append(v)
-    return models
-
-
-def list_models():
-    """All selectable models for UI DDL. Independent of LLM code - pure config.
-
-    Returns: [{"id": "ollama:qwen2.5:3b", "label": "qwen2.5:3b (ollama local)", ...}, ...]
-    """
-    options = [
-        {
-            "id": f"ollama:{OLLAMA_MODEL}",
-            "label": f"{OLLAMA_MODEL} (ollama local)",
-            "provider": "ollama",
-            "model": OLLAMA_MODEL,
-        }
-    ]
-    for m in _openrouter_models_from_env():
-        options.append({
-            "id": f"openrouter:{m}",
-            "label": f"{m} (openrouter)",
-            "provider": "openrouter",
-            "model": m,
-        })
-    return options
-
-
-def get_default_model_id():
-    """Default from LLM_PROVIDER env, falls back to first listed option."""
-    if LLM_PROVIDER == "openrouter":
-        ms = _openrouter_models_from_env()
-        if ms:
-            return f"openrouter:{ms[0]}"
-    return f"ollama:{OLLAMA_MODEL}"
+# Single fixed model — no switching.
+MODEL_ID = "openrouter:openai/gpt-oss-120b"
+MODEL_NAME = "openai/gpt-oss-120b"
 
 
 _EMB_CACHE = None
@@ -83,31 +39,18 @@ def get_embeddings():
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "300"))
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1500"))
 
-def get_llm(temperature: float = 0.7, model_id: str | None = None):
-    """Factory: runtime-selectable. model_id like 'ollama:qwen2.5:3b' or 'openrouter:...'.
-    Falls back to env default. LLM_TIMEOUT is seconds (reasoning models like
-    gpt-oss-120b need minutes); ChatOllama takes seconds, ChatOpenRouter takes ms.
+def get_llm(temperature: float = 0.7):
+    """Fixed single model: OpenRouter gpt-oss-120b. LLM_TIMEOUT is seconds
+    (reasoning models need minutes); ChatOpenRouter takes milliseconds.
     """
-    mid = model_id or get_default_model_id()
-    provider, _, model = mid.partition(":")
-    if provider == "openrouter":
-        from langchain_openrouter import ChatOpenRouter
-        return ChatOpenRouter(
-            model_name=model,
-            api_key=os.getenv("OPENROUTER_API_KEY"),
-            temperature=temperature,
-            # NOTE: ChatOpenRouter.timeout is MILLISECONDS (maps to SDK timeout_ms),
-            # so convert from LLM_TIMEOUT seconds.
-            timeout=LLM_TIMEOUT * 1000,
-            max_retries=1,
-            max_tokens=LLM_MAX_TOKENS,
-        )
-    # default: ollama (local, usually seconds)
-    from langchain_ollama import ChatOllama
-    return ChatOllama(
-        model=model or OLLAMA_MODEL,
-        base_url=OLLAMA_BASE_URL,
+    from langchain_openrouter import ChatOpenRouter
+    return ChatOpenRouter(
+        model_name=MODEL_NAME,
+        api_key=os.getenv("OPENROUTER_API_KEY"),
         temperature=temperature,
-        timeout=LLM_TIMEOUT,
-        num_predict=LLM_MAX_TOKENS,
+        # NOTE: ChatOpenRouter.timeout is MILLISECONDS (maps to SDK timeout_ms),
+        # so convert from LLM_TIMEOUT seconds.
+        timeout=LLM_TIMEOUT * 1000,
+        max_retries=1,
+        max_tokens=LLM_MAX_TOKENS,
     )

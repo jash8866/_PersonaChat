@@ -33,7 +33,8 @@ def build_system_prompt(persona: Dict) -> str:
     never = "\n".join(f"- NEVER {n['prohibition']}" for n in persona.get("never_list", []))
     rules = "\n".join(f"- IF {r['if']} THEN {r['then']}" for r in persona.get("reaction_rules", []))
     style = persona.get("speaking_style", {})
-    return f"""{persona['system_prompt']}
+    return f"""
+{persona['system_prompt']}
 
 VOICE:
 Tone: {style.get('tone','')}

@@ -9,7 +9,7 @@ Run:
 import streamlit as st
 from src.persona_loader import list_personas, load_persona
 from src.chat_engine import ChatEngine
-from src.providers import list_models, get_default_model_id
+from src.providers import MODEL_ID, MODEL_NAME
 
 st.set_page_config(page_title="PersonaChat", layout="wide")
 st.title("PersonaChat — RAG Persona Switching")
@@ -58,33 +58,22 @@ def _render_evidence(evidence):
                         meta_bits.append(f"Cited: {meta['cited']}")
                     st.caption(" · ".join(meta_bits))
 
-# Sidebar: persona + model selectors
+# Sidebar: persona selector (single fixed model, no switching)
 personas = list_personas()
 ids = [p["id"] for p in personas]
 labels = {p["id"]: f"{p['display_name']} ({p['era']})" for p in personas}
-models = list_models()
-model_ids = [m["id"] for m in models]
-model_labels = {m["id"]: m["label"] for m in models}
 
 if "active" not in st.session_state:
     st.session_state.active = ids[0]
-if "model" not in st.session_state:
-    st.session_state.model = get_default_model_id()
 if "engine" not in st.session_state:
-    st.session_state.engine = ChatEngine(st.session_state.active, model_id=st.session_state.model)
+    st.session_state.engine = ChatEngine(st.session_state.active)
 if "evidence" not in st.session_state:
     # Parallel to engine history: one entry per message (None for user msgs
     # and answers without retrieval evidence).
     st.session_state.evidence = []
 
 with st.sidebar:
-    st.header("Model")
-    mchoice = st.selectbox("Choose model", model_ids, format_func=lambda x: model_labels[x], index=model_ids.index(st.session_state.model) if st.session_state.model in model_ids else 0)
-    if mchoice != st.session_state.model:
-        st.session_state.model = mchoice
-        st.session_state.engine.set_model(mchoice)
-        st.rerun()
-    st.caption(f"Serving: {model_labels[st.session_state.model]}")
+    st.caption(f"Model: {MODEL_NAME} (openrouter)")
     st.divider()
     st.header("Active Persona")
     choice = st.selectbox("Choose who you talk to", ids, format_func=lambda x: labels[x], index=ids.index(st.session_state.active))
@@ -124,8 +113,8 @@ if prompt := st.chat_input(f"Chat with {load_persona(st.session_state.active)['d
                 st.session_state.evidence.extend([None, meta.get("evidence")])
             except Exception as e:
                 from src.telemetry import get_logger
-                get_logger("personachat.app").exception(f"chat failed model={st.session_state.model}")
-                st.error(f"Request failed ({type(e).__name__}): {e}. Check logs/personachat.log. Try a faster model or retry.")
+                get_logger("personachat.app").exception(f"chat failed model={MODEL_ID}")
+                st.error(f"Request failed ({type(e).__name__}): {e}. Check logs/personachat.log and retry.")
                 st.stop()
         st.markdown(resp)
         _render_evidence(meta.get("evidence"))
