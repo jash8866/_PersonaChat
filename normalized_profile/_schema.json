@@ -41,6 +41,7 @@
       }
     },
     "backstory": { "type": "array" },
+    "episodes": { "type": "array" },
     "relationships": { "type": "array" },
     "preferences": { "type": "object" },
     "canonical_quotes": { "type": "array" },

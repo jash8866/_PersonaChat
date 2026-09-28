@@ -80,12 +80,13 @@ def get_embeddings():
     return _EMB_CACHE
 
 
-LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "90"))
-LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "800"))
+LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "300"))
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1500"))
 
 def get_llm(temperature: float = 0.7, model_id: str | None = None):
     """Factory: runtime-selectable. model_id like 'ollama:qwen2.5:3b' or 'openrouter:...'.
-    Falls back to env default. Fail-fast timeouts so free-tier hangs surface in ~90s, not 347s.
+    Falls back to env default. LLM_TIMEOUT is seconds (reasoning models like
+    gpt-oss-120b need minutes); ChatOllama takes seconds, ChatOpenRouter takes ms.
     """
     mid = model_id or get_default_model_id()
     provider, _, model = mid.partition(":")
@@ -95,7 +96,9 @@ def get_llm(temperature: float = 0.7, model_id: str | None = None):
             model_name=model,
             api_key=os.getenv("OPENROUTER_API_KEY"),
             temperature=temperature,
-            timeout=LLM_TIMEOUT,
+            # NOTE: ChatOpenRouter.timeout is MILLISECONDS (maps to SDK timeout_ms),
+            # so convert from LLM_TIMEOUT seconds.
+            timeout=LLM_TIMEOUT * 1000,
             max_retries=1,
             max_tokens=LLM_MAX_TOKENS,
         )

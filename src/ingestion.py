@@ -28,6 +28,7 @@ CHUNK_GROUPS = [
     "never_list",
     "reaction_rules",
     "backstory",
+    "episodes",
     "relationships",
     "preferences",
     "canonical_quotes",

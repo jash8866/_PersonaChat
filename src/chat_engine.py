@@ -5,7 +5,7 @@ State is explicit: no hidden mutation.
 """
 from typing import List, Dict, Tuple
 from langchain_core.messages import HumanMessage, AIMessage
-from src.chains import get_chain
+from src.chains import get_chain, get_last_evidence
 from src.router import detect_invocation
 from src.persona_loader import load_persona
 
@@ -29,10 +29,15 @@ class ChatEngine:
             chain = get_chain(persona_id, model_id=self.model_id)
             return chain.invoke({"question": query, "history": self.history})
 
+    def _evidence_for(self, persona_id: str) -> Dict | None:
+        """Evidence captured during the last retrieval for this persona+model."""
+        return get_last_evidence(persona_id, self.model_id)
+
     def chat(self, user_input: str) -> Tuple[str, Dict]:
         """
         Returns (response_text, meta)
-        meta = {"invoked": str|None, "active": str, "model": str, "elapsed": float}
+        meta = {"invoked": str|None, "active": str, "model": str, "elapsed": float,
+                "evidence": dict|None}  # evidence feeds the UI Evidence panel
         """
         import time
         from src.telemetry import get_logger
@@ -53,7 +58,7 @@ class ChatEngine:
             self.history.append(AIMessage(content=tagged))
             elapsed = time.perf_counter() - start
             log.info(f"chat done switch={invoked} elapsed={elapsed:.2f}s")
-            return tagged, {"invoked": invoked, "active": self.active_persona, "switch": True, "model": self.model_id, "elapsed": elapsed}
+            return tagged, {"invoked": invoked, "active": self.active_persona, "switch": True, "model": self.model_id, "elapsed": elapsed, "evidence": self._evidence_for(invoked)}
 
         # Normal active persona answer
         answer = self._invoke(self.active_persona, user_input)
@@ -61,7 +66,7 @@ class ChatEngine:
         self.history.append(AIMessage(content=answer))
         elapsed = time.perf_counter() - start
         log.info(f"chat done switch=None elapsed={elapsed:.2f}s alen={len(answer)}")
-        return answer, {"invoked": None, "active": self.active_persona, "switch": False, "model": self.model_id, "elapsed": elapsed}
+        return answer, {"invoked": None, "active": self.active_persona, "switch": False, "model": self.model_id, "elapsed": elapsed, "evidence": self._evidence_for(self.active_persona)}
 
     def get_history(self) -> List[Dict]:
         out = []
