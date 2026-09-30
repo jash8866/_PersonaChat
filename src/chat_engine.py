@@ -1,14 +1,23 @@
 """
-chat_engine.py - Orchestrates active persona + temporary invoked persona.
-Perfect switching: Einstein chat -> "what would Tesla say" -> Tesla answers -> next turn auto back to Einstein.
-State is explicit: no hidden mutation.
+chat_engine.py - Chat loop for one active persona.
+
+The active persona answers every turn. If the user asks what another
+character would say, the model calls the consult_persona tool and that
+character's reply IS the answer - shown directly, with no commentary
+from the active persona.
 """
 from typing import List, Dict, Tuple
-from langchain_core.messages import HumanMessage, AIMessage
-from src.chains import get_chain, get_last_evidence
-from src.router import detect_invocation
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from src.chains import (
+    get_persona_system,
+    retrieve_context,
+    get_persona_llm,
+    get_last_evidence,
+)
+from src.persona_tools import consult_persona
 from src.persona_loader import load_persona
 from src.providers import MODEL_ID
+
 
 class ChatEngine:
     def __init__(self, active_persona: str):
@@ -18,51 +27,71 @@ class ChatEngine:
     def set_active(self, persona_id: str):
         self.active_persona = persona_id
 
-    def _invoke(self, persona_id: str, query: str) -> str:
+    def _invoke(self, persona_id: str, query: str) -> Tuple[str, List[str]]:
+        """Returns (answer, consulted_persona_ids)."""
         from src.telemetry import get_logger, timer
         log = get_logger("personachat.engine")
         with timer(log, "llm_invoke", persona=persona_id, model=MODEL_ID, qlen=len(query)):
-            chain = get_chain(persona_id)
-            return chain.invoke({"question": query, "history": self.history})
-
-    def _evidence_for(self, persona_id: str) -> Dict | None:
-        """Evidence captured during the last retrieval for this persona."""
-        return get_last_evidence(persona_id)
+            system = get_persona_system(persona_id)
+            context = retrieve_context(persona_id, query)
+            llm = get_persona_llm()
+            reply = llm.invoke([
+                SystemMessage(content=system + "\n\nRETRIEVED CONTEXT (use to stay in character):\n" + context),
+                *self.history,
+                HumanMessage(content=query),
+            ])
+            consulted: List[str] = []
+            outputs: List[Tuple[str, str]] = []
+            for call in getattr(reply, "tool_calls", None) or []:
+                if call["name"] != "consult_persona":
+                    continue
+                pid = (call.get("args") or {}).get("persona_id", "")
+                log.info(f"tool call consult_persona persona={pid}")
+                result = str(consult_persona.invoke(call.get("args") or {}))
+                if pid and pid not in consulted:
+                    consulted.append(pid)
+                outputs.append((pid, result))
+            if outputs:
+                # Consulted reply shown directly - no framing from active persona.
+                if len(outputs) == 1:
+                    return outputs[0][1], consulted
+                parts = []
+                for pid, text in outputs:
+                    try:
+                        name = load_persona(pid)["display_name"]
+                    except Exception:
+                        name = pid or "Unknown"
+                    parts.append(f"[{name}]:\n{text}")
+                return "\n\n".join(parts), consulted
+            return (reply.content or "(no answer)"), consulted
 
     def chat(self, user_input: str) -> Tuple[str, Dict]:
         """
         Returns (response_text, meta)
         meta = {"invoked": str|None, "active": str, "model": str, "elapsed": float,
-                "evidence": dict|None}  # evidence feeds the Retrieved Context panel
+                "consulted": [str], "evidence": dict|None}
         """
         import time
         from src.telemetry import get_logger
         log = get_logger("personachat.engine")
         start = time.perf_counter()
         log.info(f"chat start active={self.active_persona} model={MODEL_ID} qlen={len(user_input)} q={user_input[:120]!r}")
-        route = detect_invocation(user_input, self.active_persona)
-        invoked = route["invoked"]
-        log.info(f"route invoked={invoked} active={self.active_persona}")
 
-        if invoked and invoked != self.active_persona:
-            # Temporary persona answers (same model, different persona chain)
-            tesla_answer = self._invoke(invoked, route["query"] or user_input)
-            # Record: user -> tesla answer -> but history keeps both personas tagged
-            self.history.append(HumanMessage(content=user_input))
-            # Prefix makes switch explicit in transcript
-            tagged = f"[As {load_persona(invoked)['display_name']}]: {tesla_answer}\n\n[Back to {load_persona(self.active_persona)['display_name']}]"
-            self.history.append(AIMessage(content=tagged))
-            elapsed = time.perf_counter() - start
-            log.info(f"chat done switch={invoked} elapsed={elapsed:.2f}s")
-            return tagged, {"invoked": invoked, "active": self.active_persona, "switch": True, "model": MODEL_ID, "elapsed": elapsed, "evidence": self._evidence_for(invoked)}
-
-        # Normal active persona answer
-        answer = self._invoke(self.active_persona, user_input)
+        answer, consulted = self._invoke(self.active_persona, user_input)
         self.history.append(HumanMessage(content=user_input))
         self.history.append(AIMessage(content=answer))
         elapsed = time.perf_counter() - start
-        log.info(f"chat done switch=None elapsed={elapsed:.2f}s alen={len(answer)}")
-        return answer, {"invoked": None, "active": self.active_persona, "switch": False, "model": MODEL_ID, "elapsed": elapsed, "evidence": self._evidence_for(self.active_persona)}
+        first = consulted[0] if consulted else None
+        log.info(f"chat done consulted={consulted} elapsed={elapsed:.2f}s alen={len(answer)}")
+        return answer, {
+            "invoked": first,  # kept so the UI caption keeps working
+            "active": self.active_persona,
+            "switch": bool(consulted),
+            "consulted": consulted,
+            "model": MODEL_ID,
+            "elapsed": elapsed,
+            "evidence": get_last_evidence(self.active_persona),
+        }
 
     def get_history(self) -> List[Dict]:
         out = []
