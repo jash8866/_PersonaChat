@@ -17,7 +17,7 @@ src/
   persona_loader.py     # independent loader, builds system_prompt
   ingestion.py          # chunk by keys -> Chroma per-persona
   retriever.py          # get_retriever(persona_id)
-  chains.py             # system prompt + retrieved context + tool-enabled LLM
+  chains.py             # ChatPromptTemplate + LCEL chain per persona (system + retrieved context)
   persona_tools.py      # consult_persona tool: one persona asks another
   chat_engine.py        # chat loop; model calls the tool itself when asked
 chroma_db/              # persists embeddings (gitignored)
@@ -47,5 +47,5 @@ Local Ollama alternative: change `ChatOpenAI` to `ChatOllama` in `src/chains.py`
 ## LangChain learning path in this repo
 1. `Document` + per-group chunking (`src/ingestion.py:persona_to_documents`)
 2. `Chroma` collections + `HuggingFaceEmbeddings` (local)
-3. `@tool` + `llm.bind_tools` + a small manual tool-call loop (`src/chat_engine.py`)
-4. Plain message lists (`System` + history + `Human`, `ToolMessage` results)
+3. `ChatPromptTemplate` + `MessagesPlaceholder` (history) piped to the tool-enabled LLM via LCEL (`prompt | llm`)
+4. `@tool` + `llm.bind_tools` with direct tool-output answers (`src/chat_engine.py`)

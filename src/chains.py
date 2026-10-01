@@ -2,6 +2,7 @@ from src.persona_loader import load_persona, build_system_prompt
 from src.providers import get_llm, MODEL_ID
 from src.retriever import search_with_scores
 from src.evidence import build_evidence
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 _LAST_EVIDENCE = {}
 
@@ -56,3 +57,21 @@ def get_persona_llm():
         from src.persona_tools import consult_persona
         _LLM_CACHE = get_llm(temperature=0.7).bind_tools([consult_persona])
     return _LLM_CACHE
+
+
+def build_persona_chain(persona_id: str):
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", get_persona_system(persona_id) + "\n\nRETRIEVED CONTEXT (use to stay in character):\n{context}"),
+        MessagesPlaceholder(variable_name="history"),
+        ("human", "{question}"),
+    ])
+    return prompt | get_persona_llm()
+
+
+_CHAIN_CACHE = {}
+
+
+def get_chain(persona_id: str):
+    if persona_id not in _CHAIN_CACHE:
+        _CHAIN_CACHE[persona_id] = build_persona_chain(persona_id)
+    return _CHAIN_CACHE[persona_id]

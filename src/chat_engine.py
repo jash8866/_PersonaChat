@@ -1,11 +1,6 @@
 from typing import List, Dict, Tuple
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from src.chains import (
-    get_persona_system,
-    retrieve_context,
-    get_persona_llm,
-    get_last_evidence,
-)
+from langchain_core.messages import HumanMessage, AIMessage
+from src.chains import get_chain, retrieve_context, get_last_evidence
 from src.persona_tools import consult_persona
 from src.persona_loader import load_persona
 from src.providers import MODEL_ID
@@ -23,14 +18,12 @@ class ChatEngine:
         from src.telemetry import get_logger, timer
         log = get_logger("personachat.engine")
         with timer(log, "llm_invoke", persona=persona_id, model=MODEL_ID, qlen=len(query)):
-            system = get_persona_system(persona_id)
             context = retrieve_context(persona_id, query)
-            llm = get_persona_llm()
-            reply = llm.invoke([
-                SystemMessage(content=system + "\n\nRETRIEVED CONTEXT (use to stay in character):\n" + context),
-                *self.history,
-                HumanMessage(content=query),
-            ])
+            reply = get_chain(persona_id).invoke({
+                "context": context,
+                "question": query,
+                "history": self.history,
+            })
             consulted: List[str] = []
             outputs: List[Tuple[str, str]] = []
             for call in getattr(reply, "tool_calls", None) or []:
