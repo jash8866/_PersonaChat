@@ -1,11 +1,3 @@
-"""
-chat_engine.py - Chat loop for one active persona.
-
-The active persona answers every turn. If the user asks what another
-character would say, the model calls the consult_persona tool and that
-character's reply IS the answer - shown directly, with no commentary
-from the active persona.
-"""
 from typing import List, Dict, Tuple
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from src.chains import (
@@ -28,7 +20,6 @@ class ChatEngine:
         self.active_persona = persona_id
 
     def _invoke(self, persona_id: str, query: str) -> Tuple[str, List[str]]:
-        """Returns (answer, consulted_persona_ids)."""
         from src.telemetry import get_logger, timer
         log = get_logger("personachat.engine")
         with timer(log, "llm_invoke", persona=persona_id, model=MODEL_ID, qlen=len(query)):
@@ -52,7 +43,6 @@ class ChatEngine:
                     consulted.append(pid)
                 outputs.append((pid, result))
             if outputs:
-                # Consulted reply shown directly - no framing from active persona.
                 if len(outputs) == 1:
                     return outputs[0][1], consulted
                 parts = []
@@ -66,11 +56,6 @@ class ChatEngine:
             return (reply.content or "(no answer)"), consulted
 
     def chat(self, user_input: str) -> Tuple[str, Dict]:
-        """
-        Returns (response_text, meta)
-        meta = {"invoked": str|None, "active": str, "model": str, "elapsed": float,
-                "consulted": [str], "evidence": dict|None}
-        """
         import time
         from src.telemetry import get_logger
         log = get_logger("personachat.engine")
@@ -84,7 +69,7 @@ class ChatEngine:
         first = consulted[0] if consulted else None
         log.info(f"chat done consulted={consulted} elapsed={elapsed:.2f}s alen={len(answer)}")
         return answer, {
-            "invoked": first,  # kept so the UI caption keeps working
+            "invoked": first,
             "active": self.active_persona,
             "switch": bool(consulted),
             "consulted": consulted,

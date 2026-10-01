@@ -1,8 +1,3 @@
-"""
-Download embedding weights once into ./models (project-local HF cache).
-Run: .\\.venv\\Scripts\\python.exe scripts/download_weights.py
-After this, app loads offline with no fetch.
-"""
 import os
 import sys
 from pathlib import Path
@@ -15,7 +10,6 @@ os.environ["SENTENCE_TRANSFORMERS_HOME"] = str(MODELS_DIR)
 os.environ["HF_HUB_CACHE"] = str(MODELS_DIR)
 os.environ["HF_HOME"] = str(MODELS_DIR)
 
-# Load .env for EMBEDDING_MODEL if present
 try:
     from dotenv import load_dotenv
     load_dotenv(BASE / ".env")

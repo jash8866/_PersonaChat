@@ -1,8 +1,3 @@
-"""
-ingestion.py - RAG ingestion per persona.
-Abstraction: one independent Chroma collection per persona -> perfect isolation.
-Run: python -m src.ingestion  (or python src/ingestion.py)
-"""
 import json
 import os
 from pathlib import Path
@@ -20,7 +15,6 @@ from src.providers import get_embeddings, EMBED_MODEL
 
 CHROMA_DIR = Path(os.getenv("CHROMA_DIR", "./chroma_db"))
 
-# Each top-level key becomes a retrievable chunk group
 CHUNK_GROUPS = [
     "core_traits",
     "speaking_style",
@@ -41,7 +35,6 @@ def persona_to_documents(persona: dict) -> list[Document]:
     pid = persona["id"]
     docs: list[Document] = []
 
-    # 1. System prompt as high-weight doc
     docs.append(Document(
         page_content=f"IDENTITY: {persona['display_name']} - {persona['system_prompt']}",
         metadata={"persona": pid, "group": "system_prompt", "weight": "high"}
@@ -51,14 +44,12 @@ def persona_to_documents(persona: dict) -> list[Document]:
         value = persona.get(group)
         if not value:
             continue
-        # Serialize group value deterministically
         content = f"[{group.upper()} - {pid}]\n{json.dumps(value, ensure_ascii=False, indent=2)}"
         docs.append(Document(
             page_content=content,
             metadata={"persona": pid, "group": group}
         ))
 
-    # Also add individual reaction rules / never as separate docs for fine-grained retrieval
     for rule in persona.get("reaction_rules", []):
         docs.append(Document(
             page_content=f"REACTION RULE [{pid}]: IF {rule['if']} THEN {rule['then']}",
@@ -86,14 +77,12 @@ def ingest_all(reset: bool = True):
         data = load_persona(pid)
         docs = persona_to_documents(data)
         collection_name = f"persona_{pid}"
-        # Chroma per-persona collection = modular independence
         store = Chroma(
             collection_name=collection_name,
             embedding_function=embeddings,
             persist_directory=str(CHROMA_DIR),
         )
         if reset:
-            # clear previous
             try:
                 store.delete_collection()
                 store = Chroma(

@@ -1,6 +1,3 @@
-"""
-retriever.py - Per-persona filtered retriever (modular, independent).
-"""
 import os
 from pathlib import Path
 try:
@@ -23,18 +20,12 @@ def get_retriever(persona_id: str, k: int = 4):
     return store.as_retriever(search_kwargs={"k": k})
 
 def retrieve(persona_id: str, query: str, k: int = 4) -> str:
-    """Simple helper for non-LCEL usage."""
     r = get_retriever(persona_id, k=k)
     docs = r.invoke(query)
     return "\n\n---\n\n".join(d.page_content for d in docs)
 
 
 def search_with_scores(persona_id: str, query: str, k: int = 4):
-    """Scored retrieval for the Evidence panel.
-
-    Returns (results, elapsed_ms) where results is a list of
-    (Document, distance) tuples, best match first. Lower distance = more relevant.
-    """
     import time
     embeddings = get_embeddings()
     store = Chroma(

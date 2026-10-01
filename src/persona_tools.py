@@ -1,10 +1,3 @@
-"""
-persona_tools.py - Tools the LLM can call while answering as a persona.
-
-Instead of regexes/aliases/a router deciding when to switch personas, the
-model itself gets one tool: consult_persona. When the user asks what another
-character would say, the model calls it and works the reply into its answer.
-"""
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 
@@ -17,14 +10,16 @@ def _valid_ids():
     return [p["id"] for p in list_personas()]
 
 
-@tool
-def consult_persona(persona_id: str, question: str) -> str:
-    """Ask another character for their perspective on a question.
+_CONSULT_DESCRIPTION = (
+    "Ask another character for their perspective on a question. "
+    "Use this when the user wants to hear what a different character would say or think. "
+    f"persona_id must be one of: {', '.join(_valid_ids())}. "
+    "question is what to ask them. Returns that character's in-character reply."
+)
 
-    Use this when the user wants to hear what a different character would
-    say or think. persona_id must be a valid character id, question is what
-    to ask them. Returns that character's in-character reply.
-    """
+
+@tool("consult_persona", description=_CONSULT_DESCRIPTION)
+def consult_persona(persona_id: str, question: str) -> str:
     ids = _valid_ids()
     if persona_id not in ids:
         return f"Unknown persona '{persona_id}'. Available: {', '.join(ids)}."
@@ -41,12 +36,3 @@ def consult_persona(persona_id: str, question: str) -> str:
         HumanMessage(content=question),
     ])
     return resp.content or "(no reply)"
-
-
-# List the real ids in the tool description so the model knows who it can ask.
-consult_persona.description = (
-    "Ask another character for their perspective on a question. "
-    "Use this when the user wants to hear what a different character would say or think. "
-    f"persona_id must be one of: {', '.join(_valid_ids())}. "
-    "question is what to ask them. Returns that character's in-character reply."
-)

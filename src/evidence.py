@@ -1,22 +1,11 @@
-"""
-evidence.py - Explainable RAG evidence cards (user-facing, not a debug console).
-
-Builds UI-safe evidence from scored retrieval results. Guarantees:
-- Previews/excerpts are truncated server-side (never full chunk text).
-- Titles/labels derive only from data that actually exists (chunk group,
-  persona name, episode fields). Nothing is invented.
-- No embeddings, vector arrays, DB ids, prompts, or raw API payloads leak.
-"""
 import json
 import re
 
-PREVIEW_MAX = 180   # card preview, ~1-2 lines
-EXCERPT_MAX = 320   # "View Source" passage, still truncated
+PREVIEW_MAX = 180
+EXCERPT_MAX = 320
 
 _HEADER_RE = re.compile(r"^\[[A-Z_ ]+ - [a-z_]+\]\s*")
 
-# Chunk group -> (section label, source type). Labels describe the repo's own
-# profile structure; they are not claims about external provenance.
 GROUP_INFO = {
     "system_prompt": ("Identity", "Persona identity"),
     "episodes": ("Episode", "Profile narrative"),
@@ -38,7 +27,6 @@ GROUP_INFO = {
 
 
 def _similarity(distance: float) -> float:
-    """Cosine similarity from a Chroma cosine distance (lower distance = closer)."""
     try:
         d = float(distance)
     except (TypeError, ValueError):
@@ -59,7 +47,6 @@ def _strip_header(content: str) -> str:
 
 
 def _episode_fields(body: str):
-    """Extract (title, summary, sources) from an episodes chunk body, if parseable."""
     try:
         items = json.loads(body)
     except (json.JSONDecodeError, TypeError):
@@ -77,7 +64,6 @@ def _episode_fields(body: str):
 
 
 def build_card(doc, relevance: int, display_name: str) -> dict:
-    """Build one UI-safe evidence card from a retrieved Document."""
     group = (doc.metadata or {}).get("group", "unknown")
     section, source_type = GROUP_INFO.get(group, ("Passage", "Profile text"))
     body = _strip_header(doc.page_content)
@@ -99,7 +85,6 @@ def build_card(doc, relevance: int, display_name: str) -> dict:
         "title": title,
         "source_type": source_type,
         "relevance": relevance,
-        # Both truncated server-side; full chunk text never reaches the UI.
         "preview": _truncate(body, PREVIEW_MAX),
         "excerpt": _truncate(body, EXCERPT_MAX),
         "meta": {
@@ -109,14 +94,6 @@ def build_card(doc, relevance: int, display_name: str) -> dict:
 
 
 def build_evidence(results, elapsed_ms: float, display_name: str) -> dict:
-    """Build the full evidence payload: cards + retrieval summary.
-
-    Relevance is normalized against the best hit in the returned set
-    (best = 100, rest proportional to cosine similarity). Absolute embedding
-    distances are not calibrated percentages, so the score communicates
-    ranking within this answer's evidence. Every retrieved chunk entered the
-    context, hence the 5% floor — 0 would falsely imply "unused".
-    """
     sims = [_similarity(dist) for _, dist in results]
     peak = max(sims) if sims else 0.0
     chunks = []

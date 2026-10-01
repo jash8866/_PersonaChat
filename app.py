@@ -1,11 +1,3 @@
-"""
-app.py - Streamlit PersonaChat with LangChain RAG.
-Run:
-  pip install -r requirements.txt
-  cp .env.example .env  # add OPENAI_API_KEY
-  python -m src.ingestion   # first time: embed normalized_profile -> chroma_db
-  streamlit run app.py
-"""
 import streamlit as st
 from src.persona_loader import list_personas, load_persona
 from src.chat_engine import ChatEngine
@@ -23,13 +15,6 @@ _SECTION_ICONS = {
 }
 
 def _render_evidence(evidence):
-    """Compact Retrieved Context panel below an assistant response.
-
-    UI organization only: renders the already-retrieved chunks stored in
-    chat metadata. Shows truncated previews prepared server-side in
-    src/evidence.py — full chunk text never reaches the UI. Unrecognized
-    types fall back to "Context"; relevance scores are displayed as provided.
-    """
     if not evidence or not evidence.get("chunks"):
         return
     count = evidence.get("count", len(evidence["chunks"]))
@@ -58,7 +43,6 @@ def _render_evidence(evidence):
                         meta_bits.append(f"Cited: {meta['cited']}")
                     st.caption(" · ".join(meta_bits))
 
-# Sidebar: persona selector (single fixed model, no switching)
 personas = list_personas()
 ids = [p["id"] for p in personas]
 labels = {p["id"]: f"{p['display_name']} ({p['era']})" for p in personas}
@@ -68,8 +52,6 @@ if "active" not in st.session_state:
 if "engine" not in st.session_state:
     st.session_state.engine = ChatEngine(st.session_state.active)
 if "evidence" not in st.session_state:
-    # Parallel to engine history: one entry per message (None for user msgs
-    # and answers without retrieval evidence).
     st.session_state.evidence = []
 
 with st.sidebar:
@@ -93,7 +75,6 @@ with st.sidebar:
     st.divider()
     st.markdown("**Invocation examples:**\n- what would tesla say on this?\n- how would newton respond?\n- respond as shelby")
 
-# Render history
 history = st.session_state.engine.get_history()
 for i, msg in enumerate(history):
     with st.chat_message(msg["role"]):
@@ -101,7 +82,6 @@ for i, msg in enumerate(history):
         if msg["role"] == "assistant" and i < len(st.session_state.evidence):
             _render_evidence(st.session_state.evidence[i])
 
-# Input
 if prompt := st.chat_input(f"Chat with {load_persona(st.session_state.active)['display_name']}"):
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -109,7 +89,6 @@ if prompt := st.chat_input(f"Chat with {load_persona(st.session_state.active)['d
         with st.spinner("Thinking in character..."):
             try:
                 resp, meta = st.session_state.engine.chat(prompt)
-                # History grew by 2 (user + assistant); keep evidence aligned.
                 st.session_state.evidence.extend([None, meta.get("evidence")])
             except Exception as e:
                 from src.telemetry import get_logger

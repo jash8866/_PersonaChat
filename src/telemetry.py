@@ -1,7 +1,3 @@
-"""
-telemetry.py - Single logging abstraction (modular, independent).
-Logs to console + logs/personachat.log. Use get_logger(__name__) anywhere.
-"""
 import logging
 import time
 from contextlib import contextmanager
@@ -30,7 +26,6 @@ def get_logger(name: str = "personachat") -> logging.Logger:
 
 @contextmanager
 def timer(logger: logging.Logger, label: str, **fields):
-    """Usage: with timer(log, 'llm', persona=..., model=...): ..."""
     start = time.perf_counter()
     try:
         yield
