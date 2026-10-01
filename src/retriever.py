@@ -10,20 +10,6 @@ from src.providers import get_embeddings
 
 CHROMA_DIR = Path(os.getenv("CHROMA_DIR", "./chroma_db"))
 
-def get_retriever(persona_id: str, k: int = 4):
-    embeddings = get_embeddings()
-    store = Chroma(
-        collection_name=f"persona_{persona_id}",
-        embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR),
-    )
-    return store.as_retriever(search_kwargs={"k": k})
-
-def retrieve(persona_id: str, query: str, k: int = 4) -> str:
-    r = get_retriever(persona_id, k=k)
-    docs = r.invoke(query)
-    return "\n\n---\n\n".join(d.page_content for d in docs)
-
 
 def search_with_scores(persona_id: str, query: str, k: int = 4):
     import time

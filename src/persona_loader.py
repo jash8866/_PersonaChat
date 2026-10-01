@@ -42,6 +42,3 @@ REACTION RULES:
 Keep knowledge cutoff: {persona.get('identity', {}).get('knowledge_cutoff','')}
 Vocabulary anchors: {', '.join(persona.get('vocabulary', [])[:8])}
 """
-
-def get_persona_ids() -> List[str]:
-    return [p["id"] for p in list_personas()]
