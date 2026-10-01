@@ -14,34 +14,7 @@ _SECTION_ICONS = {
     "Voice": "💬",
 }
 
-def _render_evidence(evidence):
-    if not evidence or not evidence.get("chunks"):
-        return
-    count = evidence.get("count", len(evidence["chunks"]))
-    ms = evidence.get("retrieval_ms", 0)
-    with st.expander(f"🗂️ Retrieved context · {count} items", expanded=False):
-        st.markdown("**Retrieved Context**")
-        st.caption(f"{count} retrieved items · {ms} ms")
-        for chunk in evidence["chunks"]:
-            meta = chunk.get("meta", {})
-            section = meta.get("section") or "Context"
-            icon = _SECTION_ICONS.get(section, "📄")
-            pct_val = min(100, max(0, int(chunk.get("relevance", 0))))
-            with st.container(border=True):
-                head, pct = st.columns([5, 1])
-                head.markdown(f"{icon} **{section}**")
-                pct.markdown(f"**{pct_val}%**")
-                st.progress(pct_val)
-                st.markdown(chunk.get("title", "Source"))
-                st.caption(chunk.get("source_type", ""))
-                st.markdown(f"> {chunk.get('preview', '')}")
-                with st.popover("View Source"):
-                    st.markdown("**Retrieved passage**")
-                    st.markdown(f"> {chunk.get('excerpt', '')}")
-                    meta_bits = [f"Section: {section}"]
-                    if meta.get("cited"):
-                        meta_bits.append(f"Cited: {meta['cited']}")
-                    st.caption(" · ".join(meta_bits))
+
 
 personas = list_personas()
 ids = [p["id"] for p in personas]
@@ -74,6 +47,35 @@ with st.sidebar:
         st.rerun()
     st.divider()
     st.markdown("**Invocation examples:**\n- what would tesla say on this?\n- how would newton respond?\n- respond as shelby")
+    
+def _render_evidence(evidence):
+    if not evidence or not evidence.get("chunks"):
+        return
+    count = evidence.get("count", len(evidence["chunks"]))
+    ms = evidence.get("retrieval_ms", 0)
+    with st.expander(f"🗂️ Retrieved context · {count} items", expanded=False):
+        st.markdown("**Retrieved Context**")
+        st.caption(f"{count} retrieved items · {ms} ms")
+        for chunk in evidence["chunks"]:
+            meta = chunk.get("meta", {})
+            section = meta.get("section") or "Context"
+            icon = _SECTION_ICONS.get(section, "📄")
+            pct_val = min(100, max(0, int(chunk.get("relevance", 0))))
+            with st.container(border=True):
+                head, pct = st.columns([5, 1])
+                head.markdown(f"{icon} **{section}**")
+                pct.markdown(f"**{pct_val}%**")
+                st.progress(pct_val)
+                st.markdown(chunk.get("title", "Source"))
+                st.caption(chunk.get("source_type", ""))
+                st.markdown(f"> {chunk.get('preview', '')}")
+                with st.popover("View Source"):
+                    st.markdown("**Retrieved passage**")
+                    st.markdown(f"> {chunk.get('excerpt', '')}")
+                    meta_bits = [f"Section: {section}"]
+                    if meta.get("cited"):
+                        meta_bits.append(f"Cited: {meta['cited']}")
+                    st.caption(" · ".join(meta_bits))
 
 history = st.session_state.engine.get_history()
 for i, msg in enumerate(history):
