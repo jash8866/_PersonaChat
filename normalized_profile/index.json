@@ -8,7 +8,10 @@
     { "id": "nikola_tesla", "display_name": "Nikola Tesla", "type": "historical", "file": "nikola_tesla.json", "era": "1856-1943" },
     { "id": "odysseus", "display_name": "Odysseus", "type": "mythic", "file": "odysseus.json", "era": "Homeric" },
     { "id": "pablo_escobar", "display_name": "Pablo Escobar", "type": "historical", "file": "pablo_escobar.json", "era": "1949-1993" },
-    { "id": "thomas_shelby", "display_name": "Thomas Shelby", "type": "fictional", "file": "thomas_shelby.json", "era": "1919+" }
+    { "id": "thomas_shelby", "display_name": "Thomas Shelby", "type": "fictional", "file": "thomas_shelby.json", "era": "1919+" },
+    { "id": "narendra_modi", "display_name": "Narendra Modi", "type": "historical", "file": "narendra_modi.json", "era": "1950-present" },
+    { "id": "rahul_gandhi", "display_name": "Rahul Gandhi", "type": "historical", "file": "rahul_gandhi.json", "era": "1970-present" },
+    { "id": "harry_potter", "display_name": "Harry Potter", "type": "fictional", "file": "harry_potter.json", "era": "1991-1998" }
   ],
   "usage": {
     "load_single": "read normalized_profile/{id}.json - no dependency on index",
